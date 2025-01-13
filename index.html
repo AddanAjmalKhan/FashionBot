@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fashion Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(120deg, #fce4ec, #f3e5f5);
+            animation: gradientBg 10s infinite alternate;
+        }
+
+        @keyframes gradientBg {
+            0% {
+                background: linear-gradient(120deg, #fce4ec, #f3e5f5);
+            }
+
+            100% {
+                background: linear-gradient(120deg, #f8bbd0, #e1bee7);
+            }
+        }
+
+        .rounded-btn {
+            border-radius: 30px;
+            background: linear-gradient(to right, #f48fb1, #f06292);
+            color: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .rounded-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .dark-mode {
+            background-color: #1e1e1e;
+            color: white;
+        }
+
+        .dark-mode .bg-white {
+            background-color: #2e2e2e !important;
+        }
+
+        .dark-mode input,
+        .dark-mode button {
+            background-color: #333 !important;
+            color: white !important;
+            border: 1px solid #555;
+        }
+
+        .chat-message {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            padding: 1rem;
+        }
+
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.8);
+            z-index: 1000;
+        }
+
+        #loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #e91e63;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .history-item:hover {
+            background-color: #ffc1e3 !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading-overlay" class="flex">
+        <div id="loading-spinner"></div>
+    </div>
+
+    <div class="flex h-screen">
+        <!-- History Sidebar -->
+        <div id="history-sidebar" class="w-1/4 bg-white p-4 overflow-y-auto border-r border-gray-200 transition hidden">
+            <h2 class="text-xl font-bold mb-4 text-pink-600">Previous Conversations</h2>
+            <div id="history-list"></div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col">
+            <div class="container mx-auto p-4 flex-1 flex flex-col">
+                <!-- Header -->
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-4xl font-bold text-pink-500">Fashion Assistant</h1>
+                    <div class="flex space-x-2">
+                        <button id="history-toggle" class="rounded-btn px-4 py-2">
+                            <i class="fas fa-history"></i> History
+                        </button>
+                        <button id="theme-toggle" class="rounded-btn px-4 py-2">
+                            <i class="fas fa-moon"></i> Dark Mode
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Chat Box -->
+                <div id="chat-box" class="bg-white p-6 rounded-lg shadow-lg flex-1 overflow-y-auto mb-6"></div>
+
+                <!-- Typing Indicator -->
+                <div id="typing-indicator" class="hidden text-pink-500 text-center my-4">AI is typing...</div>
+
+                <!-- Chat Form -->
+                <form id="chat-form" class="flex mt-4">
+                    <input type="text" id="user-input" class="flex-grow p-3 border rounded-l-full focus:outline-none focus:ring-2 focus:ring-pink-400 transition" placeholder="Ask your fashion question...">
+                    <button type="submit" class="rounded-btn px-6 py-3 flex items-center justify-center">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function () {
+            function addMessage(sender, message) {
+                const isUser = sender === 'You';
+                const icon = isUser ? '<i class="fas fa-user text-white"></i>' : '<i class="fas fa-tshirt text-pink-500"></i>';
+                const messageClass = isUser ? 'bg-pink-500 text-white self-end' : 'bg-pink-100 text-pink-800 self-start';
+
+                const messageContainer = `
+                    <div class="flex ${isUser ? 'justify-end' : 'justify-start'} mb-4">
+                        <div class="chat-message flex items-center space-x-2 max-w-md p-3 rounded-lg shadow ${messageClass}">
+                            ${!isUser ? icon : ''} 
+                            <span>${message}</span>
+                            ${isUser ? icon : ''} 
+                        </div>
+                    </div>
+                `;
+
+                $('#chat-box').append(messageContainer);
+                $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+            }
+
+            function sendMessage(message) {
+                addMessage('You', message);
+                $('#user-input').val('');
+                $('#typing-indicator').removeClass('hidden');
+                $('#loading-overlay').fadeIn();
+
+                $.ajax({
+                    url: '/chat',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ message: message }),
+                    success: function (response) {
+                        addMessage('AI', response.message);
+                    },
+                    error: function () {
+                        addMessage('AI', 'An error occurred. Please try again.');
+                    },
+                    complete: function () {
+                        $('#typing-indicator').addClass('hidden');
+                        $('#loading-overlay').fadeOut();
+                    }
+                });
+            }
+
+            $('#chat-form').submit(function (e) {
+                e.preventDefault();
+                const userMessage = $('#user-input').val().trim();
+                if (userMessage) {
+                    sendMessage(userMessage);
+                }
+            });
+
+            $('#theme-toggle').click(function () {
+                $('body').toggleClass('dark-mode');
+                $(this).html($('body').hasClass('dark-mode') ? '<i class="fas fa-sun"></i> Light Mode' : '<i class="fas fa-moon"></i> Dark Mode');
+            });
+
+            $('#history-toggle').click(function () {
+                $('#history-sidebar').toggleClass('hidden');
+            });
+
+            addMessage('AI', 'Hello! I\'m your Fashion Assistant. How can I help you today?');
+        });
+    </script>
+</body>
+
+</html>
