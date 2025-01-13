@@ -8,3 +8,6 @@ cd fashion-designer-chatbot
 3️⃣ Set Up Environment Variables Create a .env file in the root directory and add the following: OPENAI_API_KEY=your-openai-api-key
 MONGO_URI=your-mongodb-connection-string
 4️⃣ Run the Flask App python app.py
+
+# Author
+Addan Ajmal Khan Qanita Binte Younas
